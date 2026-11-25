@@ -109,6 +109,22 @@ main{padding-top:22px;padding-bottom:28px}.topline{display:flex;justify-content:
 .rules-list li{padding:2px 0;margin:0;overflow-wrap:anywhere;line-height:1.45;font-size:clamp(12px,1.05vw,20px);font-weight:700;color:var(--deep)}
 .rules-list li::marker{color:var(--wine);font-weight:900}
 @media(max-width:600px){.rules-grid.bilingual-lists{grid-template-columns:1fr}.rules-list li{font-size:14px}}
+
+/* Exam room staffing and attendance */
+.room-details{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.65fr) minmax(0,.9fr) minmax(0,.9fr);gap:8px;margin:0 0 12px;padding:9px 12px;background:white;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.room-field{min-width:0;display:flex;flex-direction:column;gap:3px}
+.room-field label{color:var(--wine);font-size:clamp(11px,.9vw,15px);font-weight:900;line-height:1.45}
+.room-field select,.room-field input{font:700 clamp(12px,.95vw,16px)/1.4 'Inter','Cairo',Arial,sans-serif;width:100%;min-width:0;height:38px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:#fdfbf6;color:var(--deep);direction:ltr;text-align:left}
+.room-field input:focus-visible{outline:3px solid #d9a248;outline-offset:2px}
+.room-field.attendance input{text-align:center;font-weight:900;font-size:18px}
+.room-value{display:none;direction:ltr;text-align:left;font:800 clamp(13px,1.12vw,21px)/1.4 'Inter',Arial,sans-serif;overflow-wrap:anywhere;color:var(--deep);min-height:22px}
+.room-field.attendance .room-value{text-align:center;font-size:clamp(22px,2vw,36px);line-height:1.15}
+.room-field.present .room-value{color:var(--green)}.room-field.absent .room-value{color:var(--wine)}
+.projector .room-field select,.projector .room-field input{display:none}.projector .room-value{display:block}
+@media(max-width:900px){.room-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.room-details{padding:8px;gap:7px}.room-field label{font-size:10px}.room-field select{font-size:11px}}
+@media print{.room-field select,.room-field input{display:none!important}.room-value{display:block}.room-details{box-shadow:none;break-inside:avoid}}
+
 </style></head><body>
 <div id="displayShell"><div class="flag-band" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <header class="masthead"><div class="container masthead-row">
@@ -126,6 +142,13 @@ main{padding-top:22px;padding-bottom:28px}.topline{display:flex;justify-content:
 </div></section>
 <main class="container">
 <div class="topline"><div class="term-label"><i aria-hidden="true"></i> <span>شاشة قاعة الاختبار &nbsp;•&nbsp; Exam Room Display</span></div><div class="date-detail" id="dateHeadline" aria-live="polite"></div></div>
+<section class="room-details" aria-label="المراقبون والحضور | Invigilators and attendance">
+<div class="room-field"><label for="invigilator1">المراقب 1 | Invigilator 1</label><select id="invigilator1" aria-label="Invigilator 1"><option value="">— اختر الاسم / Select name —</option></select><div class="room-value" id="invigilator1Value">—</div></div>
+<div class="room-field"><label for="invigilator2">المراقب 2 | Invigilator 2</label><select id="invigilator2" aria-label="Invigilator 2"><option value="">— اختر الاسم / Select name —</option></select><div class="room-value" id="invigilator2Value">—</div></div>
+<div class="room-field attendance present"><label for="studentsPresent">عدد الحضور | Students present</label><input id="studentsPresent" type="text" inputmode="numeric" pattern="[0-9]*" list="attendanceNumbers" autocomplete="off" placeholder="—" aria-label="Number of students present"><div class="room-value" id="studentsPresentValue">—</div></div>
+<div class="room-field attendance absent"><label for="studentsAbsent">عدد الغياب | Students absent</label><input id="studentsAbsent" type="text" inputmode="numeric" pattern="[0-9]*" list="attendanceNumbers" autocomplete="off" placeholder="—" aria-label="Number of students absent"><div class="room-value" id="studentsAbsentValue">—</div></div>
+<datalist id="attendanceNumbers"></datalist>
+</section>
 <div class="hero-layout"><section class="subject-panel" id="subjectPanel" aria-live="polite"></section>
 <div class="side"><section class="clock-panel"><div class="clock-label">الوقت الآن في الإمارات &nbsp; | &nbsp; UAE CURRENT TIME</div><div class="clock-hhmm" aria-label="الساعة الآن"><span id="clockMain">--:--</span><span class="seconds" id="clockSeconds">:--</span></div><div class="clock-date" id="clockDate">&nbsp;</div><div class="today-badge" id="dateBadge">توقيت دولة الإمارات • GST UTC+4</div><div class="counter"><div class="counter-label" id="counterLabel">الوقت المتبقي | Time remaining</div><div class="counter-time" id="countdown">--:--:--</div><div class="counter-note" id="counterNote">حسب الوقت الرسمي للاختبار • Based on official exam times</div></div></section>
 <section class="dua-panel"><div class="dua-heading"><span>دعاء الاختبار &nbsp;|&nbsp; Exam Dua</span><span class="dua-symbol" aria-hidden="true">✦</span></div><p class="dua-ar" lang="ar" dir="rtl">اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا، وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا.</p><p class="dua-en" lang="en" dir="ltr">O Allah, nothing is easy except what You make easy, and You can make what is difficult easy.</p></section></div></div>
@@ -224,5 +247,36 @@ window.addEventListener('load',queueFit);
 window.addEventListener('beforeprint',()=>{el('displayShell').style.zoom='1'});
 window.addEventListener('afterprint',queueFit);
 queueFit();
+
+
+const INVIGILATORS = ["Savannah Leah Seediah", "Nazam Sachdeva", "Nevin Rezk Abouelfetouh Elsayed Khadra", "Aysha Abdulla Ahmed Khamis Alshehhi", "Ameena Ally", "Bakhita Ali Mesfer Sultan Alkhyeli", "Mouza Mubarak Aziz Almuharrami", "Katarina Josephene Chetty", "Kabeera Nabee", "Ban Adil Ahmed Al Jumaili", "Nikita Arendse", "Heba Mohammad Mojally Al Aish", "Srishti Oberoi", "Ghalia Khairi Alrabbat", "Fatema Saed Matar Hawash Alkhyeli", "Nadia Aida Awad Saleh Alseiari", "Adalia Qasim Alshannag", "Fawzia Abas Hafez Mohamed", "Crystal Natalie Pillay", "Hamama Saeed Mohammed Sabt Alkhyeli", "Moza Hamad Hasan Calily Alameri", "Mariam Dahi Hamad Mohammed Almazrouei", "Ayah Abdallah Mohammad Aletaywi", "Emel Harb", "Dehaya Obaid Subaih", "Ahoud Sulaiyam Mabrook Nasser Aljneibi", "Sarika Prathap Sukumara Pillai Sudarsanan", "Jawaher Bakhit Hamdan Rashed Alameri", "Afra Ahmed Matar Majed Alkhyeli", "Sara Yousif Abdulkareem Alansari", "Fatima Yaslam Karamah Awad Alkatheeri", "Najla Ahmed Awad Bahareth Alhadhrami", "Masada Ahmed Mohammed Nasser Albreiki", "Raeya Omar Hasan Abdulraheem Albreiki", "Fatima Khamis Abdulla Khamis Alkaabi", "Shatha Khalil Khalifeh Al Asasfeh", "Shamsa Abdulla Ibrahim Ali Alblooshi", "Mariem Dhahri Hammami", "Alanood Mohammed Salem Saeed Alkatheeri", "Verina Melad Nassif Tadrous Attalla", "Fauzeya Amer Mohammed Ahmed Al Eissaee", "Shaikha Mohammed Ahmed Mohammed Almatrooshi", "Azbah Butti Salem Musa Alqubaisi", "Mariam Almemari", "Hanaa Al Areefi", "Mariam Saleh Musabbeh Salem Almenhali", "Aysha Ali Mohammed Sabt Alkhyeli", "Safaa Khaled Ahmad Abudalou", "Hamda Hamad Malhi Awn Alseiari", "Azza Hussein", "Rania Abdelrahman Mohammed Aly", "Natasha Chunderduri", "Manar Abdelslam Mohamad Twfiq Ghanem", "Maram Mahmood Kayed Khader", "Sarah Khaled Mohammed Alshabrawy Mousa", "Rasha Mohamed Kamal", "Safeya Othman Abdulla Mahri Al Katheeri", "Buthaina Hamad Salem Saeed Alshamsi", "Rania Fouad Besher Salem Binhraiz"];
+const roomIds=['invigilator1','invigilator2','studentsPresent','studentsAbsent'];
+function updateRoomValues(){
+ for(const id of roomIds){el(id+'Value').textContent=el(id).value===''?'—':el(id).value;}
+}
+function initRoomDetails(){
+ for(const id of roomIds.slice(0,2)){
+  for(const name of INVIGILATORS){el(id).add(new Option(name,name));}
+  el(id).addEventListener('change',()=>{updateRoomValues();queueFit()});
+ }
+ for(let i=0;i<=100;i++){const opt=document.createElement('option');opt.value=String(i);el('attendanceNumbers').append(opt);}
+ for(const id of roomIds.slice(2)){
+  el(id).addEventListener('input',()=>{
+   // Accept Arabic-Indic and Persian digits as well as Western digits.
+   el(id).value=el(id).value.replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x660)).replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-0x6f0)).replace(/[^0-9]/g,'');
+   updateRoomValues();queueFit();
+  });
+ }
+ updateRoomValues();
+ // Clear the hall-specific details when the selected exam changes.
+ let lastKey=JSON.stringify(selected());
+ for(const id of ['dateSelect','gradeSelect','streamSelect','todayBtn']){
+  el(id).addEventListener(id==='todayBtn'?'click':'change',()=>{
+   const key=JSON.stringify(selected());
+   if(key!==lastKey){roomIds.forEach(id=>el(id).value='');updateRoomValues();lastKey=key;queueFit();}
+  });
+ }
+}
+initRoomDetails();
 
 </script></body></html>
