@@ -125,6 +125,18 @@ main{padding-top:22px;padding-bottom:28px}.topline{display:flex;justify-content:
 @media(max-width:420px){.room-details{padding:8px;gap:7px}.room-field label{font-size:10px}.room-field select{font-size:11px}}
 @media print{.room-field select,.room-field input{display:none!important}.room-value{display:block}.room-details{box-shadow:none;break-inside:avoid}}
 
+/* Larger staff names and flexible grade selection */
+.room-field:not(.attendance) select{font-size:clamp(14px,1.15vw,20px);height:44px}
+.room-field:not(.attendance) .room-value{font-size:clamp(16px,1.35vw,25px)}
+.filters .field.invisible,.filters .field[hidden]{display:none!important}
+.filters{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))}
+@media(max-width:740px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filters .field:first-child{grid-column:1/-1}}
+@media(max-width:420px){.room-field:not(.attendance) select{font-size:13px}}
+.combined-subjects{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;margin:8px 0 14px}
+.combined-subject{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--cream)}
+.combined-subject .subject-name{font-size:clamp(24px,2.8vw,52px);margin:3px 0}
+.combined-subject .subject-en{font-size:clamp(14px,1.5vw,26px);margin:0}
+.combined-subject .stream-title{color:var(--wine);font-weight:900;font-size:clamp(12px,1vw,17px)}
 </style></head><body>
 <div id="displayShell"><div class="flag-band" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 <header class="masthead"><div class="container masthead-row">
@@ -137,6 +149,7 @@ main{padding-top:22px;padding-bottom:28px}.topline{display:flex;justify-content:
 <div class="filters">
 <div class="field"><label for="dateSelect">اليوم والتاريخ | Day &amp; date</label><select id="dateSelect"></select></div>
 <div class="field"><label for="gradeSelect">الصف الدراسي | Grade</label><select id="gradeSelect"></select></div>
+<div class="field" id="senGradeField" hidden><label for="senGradeSelect">الصف المرجعي | SEN reference grade</label><select id="senGradeSelect"><option value="">اختر الصف / Select grade</option></select></div>
 <div class="field" id="streamField"><label for="streamSelect">المسار | Stream</label><select id="streamSelect"><option value="general">العام / General</option><option value="advanced">المتقدم / Advanced</option><option value="applied">التطبيقي / Applied</option></select></div>
 </div><div class="action-set"><button class="action" id="projectorBtn" type="button" title="إخفاء خيارات المعلم"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" d="M4 7h16M4 17h16M9 4v6M15 14v6"/></svg><span>وضع العرض / Display</span></button><button class="action primary" id="fullscreenBtn" type="button" title="ملء الشاشة"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg><span>ملء الشاشة / Fullscreen</span></button></div>
 </div></section>
@@ -171,29 +184,46 @@ const gradeAr=['','الأول','الثاني','الثالث','الرابع','ا�
 const streamNames={general:['المسار العام','General Stream'],advanced:['المسار المتقدم','Advanced Stream'],applied:['المسار التطبيقي','Applied Stream']};
 const dateFmt=(s)=>{const [y,m,d]=s.split('-').map(Number),x=new Date(Date.UTC(y,m-1,d)),w=x.getUTCDay();return {short:`${arDays[w]} ${d} ${arMonths[m-1]} • ${enDays[w]} ${d} ${enMonths[m-1]}`,full:`${arDays[w]}، ${d} ${arMonths[m-1]} ${y}  •  ${enDays[w]}, ${d} ${enMonths[m-1]} ${y}`}};
 const nowGST=()=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Dubai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const obj=Object.fromEntries(p.filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return {iso:`${obj.year}-${obj.month}-${obj.day}`,h:+obj.hour,m:+obj.minute,s:+obj.second,year:+obj.year,month:+obj.month,day:+obj.day};};
-const selected=()=>({grade:+el('gradeSelect').value,stream:el('streamSelect').value,date:el('dateSelect').value});
-const currentEntry=()=>{const s=selected();return SCHEDULE[`${s.grade}-${s.grade<9?'general':s.stream}`]?.[s.date]||null};
+const combinedStream=['العام والمتقدم','General + Advanced'];
+const selected=()=>{const choice=el('gradeSelect').value,sen=choice==='sen', [base,fixed]=choice.split('-');const grade=sen?Number(el('senGradeSelect').value):Number(base);return {grade,stream:grade<9?'general':(fixed||el('streamSelect').value),date:el('dateSelect').value,sen,choice};};
+const currentEntry=()=>{const s=selected();if(s.stream!=='combined')return SCHEDULE[`${s.grade}-${s.stream}`]?.[s.date]||null;
+ const streams=['general','advanced'];const groups=streams.map(stream=>({stream,entry:SCHEDULE[`${s.grade}-${stream}`]?.[s.date]||null}));const active=groups.filter(g=>g.entry);if(!active.length)return null;
+ // In the supplied timetable both streams have identical phase timings on shared exam days.
+ const first=active[0].entry;const common=active.length===2&&JSON.stringify(active[0].entry)===JSON.stringify(active[1].entry);
+ return {...first,groups,common};};
 const secs=t=>{const [h,m]=t.split(':').map(Number);return h*3600+m*60};
 function relativeSeconds(date,time,now){const day0=Date.UTC(+date.slice(0,4),+date.slice(5,7)-1,+date.slice(8,10));const today=Date.UTC(now.year,now.month-1,now.day);return Math.floor((day0-today)/1000)+secs(time)-(now.h*3600+now.m*60+now.s);}
 const clockStr=n=>{n=Math.max(0,Math.floor(n));return [Math.floor(n/3600),Math.floor(n%3600/60),n%60].map(x=>String(x).padStart(2,'0')).join(':');};
 function populate(){
  [...new Set([...EXAM_DATES,nowGST().iso])].sort().forEach(d=>{const opt=document.createElement('option');opt.value=d;opt.textContent=dateFmt(d).short;el('dateSelect').append(opt)});
- for(let g=1;g<=12;g++){const opt=document.createElement('option');opt.value=g;opt.textContent=`الصف ${gradeAr[g]} / Grade ${g}`;el('gradeSelect').append(opt)}
- const saved=Number(safeStorage.get('at_exam_grade'));el('gradeSelect').value=(saved>=1&&saved<=12)?String(saved):'5';
+ for(let g=1;g<=12;g++){
+  const label=`الصف ${gradeAr[g]} / Grade ${g}`;
+  el('gradeSelect').add(new Option(label,String(g)));el('senGradeSelect').add(new Option(label,String(g)));
+  if([10,12].includes(g)){
+   for(const [key,ar,en] of [['advanced','متقدم','Advanced'],['general','عام','General'],['combined','متقدم + عام','Advanced + General']])el('gradeSelect').add(new Option(`الصف ${gradeAr[g]} ${ar} / Grade ${g} ${en}`,`${g}-${key}`));
+  }
+ }
+ el('gradeSelect').add(new Option('أصحاب الهمم (SEN) / SEN','sen'));
+ const saved=safeStorage.get('at_exam_grade');el('gradeSelect').value=[...el('gradeSelect').options].some(o=>o.value===saved)?saved:'5';
+ const ref=safeStorage.get('at_exam_sen_grade');if(ref&&[...el('senGradeSelect').options].some(o=>o.value===ref))el('senGradeSelect').value=ref;
  const st=safeStorage.get('at_exam_stream');if(st&&['general','advanced','applied'].includes(st))el('streamSelect').value=st;
  updateStream(true);el('dateSelect').value=nowGST().iso;render();
 }
-function updateStream(first=false){const g=+el('gradeSelect').value;el('streamField').classList.toggle('invisible',g<9);const applied=el('streamSelect').querySelector('option[value="applied"]');applied.hidden=g!==12;applied.disabled=g!==12;if(g<12&&el('streamSelect').value==='applied')el('streamSelect').value='general';if(g<9)el('streamSelect').value='general';if(!first)render();}
+function updateStream(first=false){const s=selected(),g=s.grade;el('senGradeField').hidden=!s.sen;const fixed=s.choice.includes('-');el('streamField').classList.toggle('invisible',g<9||fixed);const applied=el('streamSelect').querySelector('option[value="applied"]');applied.hidden=g!==12;applied.disabled=g!==12;if(g<12&&el('streamSelect').value==='applied')el('streamSelect').value='general';if(g<9)el('streamSelect').value='general';if(!first)render();}
 function phaseState(p,date,now){const start=relativeSeconds(date,p.start,now),end=relativeSeconds(date,p.end,now);return start>0?'upcoming':end>0?'active':'done'}
 function examState(entry,date,now){const a=entry.phases[0],last=entry.phases[entry.phases.length-1],starts=relativeSeconds(date,a.start,now),ends=relativeSeconds(date,last.end,now);if(starts>0)return {text:'لم يبدأ الاختبار • Not started',code:'future'};if(ends<=0)return {text:'انتهى وقت الاختبار • Exam finished',code:'done'};return {text:'الاختبار جارٍ • Exam in progress',code:'active'}};
 function render(){
- const s=selected(),entry=currentEntry(),str=s.grade>=9?streamNames[s.stream]:null;
- const note=el('schoolNote');note.classList.toggle('visible',s.grade<=2);
- note.textContent='تنبيه: الصفان الأول والثاني يعرضان جدول الصفين الثالث والرابع بناءً على ترتيب مدرسة الطليعة، وليس ضمن الجداول الوزارية المرفقة للصفوف 3–12.  |  Note: Grades 1–2 follow the Grades 3–4 timetable under the school arrangement; the attached MOE schedule starts at Grade 3.';
- if(!entry){el('subjectPanel').innerHTML=`<div class="head-meta"><span class="chip">الصف ${gradeAr[s.grade]} / Grade ${s.grade}</span>${str?`<span class="chip secondary">${str[0]} / ${str[1]}</span>`:''}</div><div class="noexam"><div class="icon">✓</div><h2>لا يوجد اختبار مجدول</h2><p>No exam scheduled for this grade and date</p></div>`;tick();return;}
+ const s=selected(),entry=currentEntry(),str=s.grade>=9?(s.stream==='combined'?combinedStream:streamNames[s.stream]):null;
+ const gradeChip=s.sen?`<span class="chip">أصحاب الهمم / SEN</span>${s.grade?`<span class="chip secondary">الصف ${gradeAr[s.grade]} / Grade ${s.grade}</span>`:''}`:`<span class="chip">الصف ${gradeAr[s.grade]} / Grade ${s.grade}</span>`;
+ const meta=gradeChip+(str?`<span class="chip secondary">${str[0]} / ${str[1]}</span>`:'');
+ const note=el('schoolNote');note.classList.toggle('visible',s.sen||s.grade<=2);
+ note.textContent=s.sen?'تنبيه: يعرض الجدول والتوقيت المرجعي للصف فقط. يرجى اتباع الترتيبات والتوقيت المعتمد لكل طالب من أصحاب الهمم. | SEN: Reference grade timetable and standard timings only. Follow each student’s approved exam arrangements and timing.':'تنبيه: الصفان الأول والثاني يعرضان جدول الصفين الثالث والرابع بناءً على ترتيب مدرسة الطليعة، وليس ضمن الجداول الوزارية المرفقة للصفوف 3–12. | Note: Grades 1–2 follow the Grades 3–4 timetable under the school arrangement; the attached MOE schedule starts at Grade 3.';
+ if(!entry){el('subjectPanel').innerHTML=`<div class="head-meta">${meta}</div><div class="noexam"><div class="icon">✓</div><h2>${s.sen&&!s.grade?'اختر الصف المرجعي':'لا يوجد اختبار مجدول'}</h2><p>${s.sen&&!s.grade?'Select the SEN reference grade':'No exam scheduled for this grade and date'}</p></div>`;tick();return;}
  const sub=SUBJECTS[entry.subject];
  const phases=entry.phases.map((p,i)=>`<article class="segment" data-index="${i}"><div class="seg-top"><span class="seg-tag">${p.ar}</span><span class="seg-state"></span></div><div class="times"><span>${p.start}</span><span class="dash">–</span><span>${p.end}</span></div><div class="seg-english">${p.en}</div></article>`).join('');
- el('subjectPanel').innerHTML=`<div class="head-meta"><span class="chip">الصف ${gradeAr[s.grade]} / Grade ${s.grade}</span>${str?`<span class="chip secondary">${str[0]} / ${str[1]}</span>`:''}<span class="chip gold">${entry.phases.length>1?'فترتان / 2 parts':'فترة واحدة / 1 part'}</span></div><div class="title-small">المادة الدراسية &nbsp;|&nbsp; SUBJECT</div><h2 class="subject-name" lang="ar">${sub[0]}</h2><p class="subject-en" lang="en" dir="ltr">${sub[1]}</p><div class="segments">${phases}</div><div class="exam-guidance">يرجى الالتزام بمواعيد الاختبار وتعليمات المراقب <span class="translate" dir="ltr">Please follow the exam timings and invigilator's instructions.</span></div>`;
+ const subject=entry.groups&&!entry.common?`<div class="combined-subjects">${entry.groups.map(g=>{const names=g.entry?SUBJECTS[g.entry.subject]:['لا يوجد اختبار مجدول','No exam scheduled'];return `<div class="combined-subject"><div class="stream-title">${streamNames[g.stream].join(' / ')}</div><h2 class="subject-name" lang="ar">${names[0]}</h2><p class="subject-en" lang="en" dir="ltr">${names[1]}</p></div>`}).join('')}</div>`:`<h2 class="subject-name" lang="ar">${sub[0]}</h2><p class="subject-en" lang="en" dir="ltr">${sub[1]}</p>`;
+ const shared=entry.groups&&!entry.common?`<div class="title-small">${entry.groups.every(g=>g.entry)?'توقيت مشترك للمسارين | Shared timings for both streams':'التوقيت للمسار الذي لديه اختبار فقط | Timings apply to the scheduled stream only'}</div>`:'';
+ el('subjectPanel').innerHTML=`<div class="head-meta">${meta}<span class="chip gold">${entry.phases.length>1?'فترتان / 2 parts':'فترة واحدة / 1 part'}</span></div><div class="title-small">المادة الدراسية &nbsp;|&nbsp; SUBJECT</div>${subject}${shared}<div class="segments">${phases}</div><div class="exam-guidance">${s.sen?'يرجى اتباع التوقيت والترتيبات المعتمدة للطالب':'يرجى الالتزام بمواعيد الاختبار وتعليمات المراقب'} <span class="translate" dir="ltr">${s.sen?'Follow the student’s approved exam timing and arrangements.':"Please follow the exam timings and invigilator's instructions."}</span></div>`;
  tick();
 }
 function tick(){
@@ -202,6 +232,7 @@ function tick(){
  const today=dateFmt(now.iso);el('clockDate').textContent=today.full;
  const selectedDay=el('dateSelect').value,entry=currentEntry();const counter=el('countdown').closest('.counter');counter.style.display='none';if(!selectedDay||!entry){el('counterLabel').textContent='لا يوجد اختبار | No scheduled exam';el('countdown').textContent='--:--:--';el('counterNote').textContent='اختر تاريخاً آخر للعرض • Choose a different date';el('dateBadge').textContent='UAE • GST UTC+4';el('dateBadge').classList.add('other');return;}
  const badge=el('dateBadge');badge.classList.toggle('other',now.iso!==selectedDay);badge.textContent=now.iso===selectedDay?'اليوم المحدد هو اليوم • Today’s exam':'توقيت الإمارات • GST UTC+4';
+ if(selected().sen){document.querySelectorAll('.segment').forEach(e=>{e.classList.remove('active','done');e.querySelector('.seg-state').textContent='';});return;}
  const status=examState(entry,selectedDay,now);
  const states=entry.phases.map(p=>phaseState(p,selectedDay,now));
  document.querySelectorAll('.segment').forEach((element,i)=>{element.classList.toggle('active',states[i]==='active');element.classList.toggle('done',states[i]==='done');element.querySelector('.seg-state').textContent=states[i]==='active'?'● الآن / NOW':states[i]==='done'?'✓ انتهى / Done':''});
@@ -210,8 +241,9 @@ function tick(){
  if(activeIndex>=0){counter.style.display='';const p=entry.phases[activeIndex];el('counterLabel').textContent='الوقت المتبقي لهذا الجزء | Time left in this part';el('countdown').textContent=clockStr(relativeSeconds(selectedDay,p.end,now));el('counterNote').textContent=p.ar+' • '+p.en;return;}
  // Before an exam begins, show the live clock only.
 }
-function save(){safeStorage.set('at_exam_grade',el('gradeSelect').value);safeStorage.set('at_exam_stream',el('streamSelect').value)}
+function save(){safeStorage.set('at_exam_grade',el('gradeSelect').value);safeStorage.set('at_exam_stream',el('streamSelect').value);safeStorage.set('at_exam_sen_grade',el('senGradeSelect').value)}
 el('gradeSelect').addEventListener('change',()=>{updateStream();save()});
+el('senGradeSelect').addEventListener('change',()=>{updateStream();save()});
 el('streamSelect').addEventListener('change',()=>{save();render()});
 el('dateSelect').addEventListener('change',render);
 el('projectorBtn').addEventListener('click',()=>document.body.classList.add('projector'));
@@ -238,7 +270,7 @@ function fitDisplay(){
 function queueFit(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitDisplay)}
 window.addEventListener('resize',queueFit);
 document.addEventListener('fullscreenchange',queueFit);
-['dateSelect','gradeSelect','streamSelect','projectorBtn','restoreTools'].forEach(id=>{el(id).addEventListener(id.endsWith('Select')?'change':'click',queueFit)});
+['dateSelect','gradeSelect','senGradeSelect','streamSelect','projectorBtn','restoreTools'].forEach(id=>{el(id).addEventListener(id.endsWith('Select')?'change':'click',queueFit)});
 if(document.fonts)document.fonts.ready.then(queueFit);
 window.addEventListener('load',queueFit);
 window.addEventListener('beforeprint',()=>{el('displayShell').style.zoom='1'});
@@ -267,7 +299,7 @@ function initRoomDetails(){
  updateRoomValues();
  // Clear the hall-specific details when the selected exam changes.
  let lastKey=JSON.stringify(selected());
- for(const id of ['dateSelect','gradeSelect','streamSelect']){
+ for(const id of ['dateSelect','gradeSelect','senGradeSelect','streamSelect']){
   el(id).addEventListener('change',()=>{
    const key=JSON.stringify(selected());
    if(key!==lastKey){roomIds.forEach(id=>el(id).value='');updateRoomValues();lastKey=key;queueFit();}
